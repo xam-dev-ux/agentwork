@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useWriteContract, usePublicClient } from "wagmi";
 import { parseUnits } from "viem";
 import {
   AGENT_WORK_ADDRESS,
@@ -18,19 +18,17 @@ export function PostTaskForm({ onPosted }: { onPosted?: () => void }) {
   const [error, setError] = useState("");
 
   const { writeContractAsync } = useWriteContract();
-  const { waitForTransactionReceipt } = useWaitForTransactionReceipt
-    ? { waitForTransactionReceipt: undefined }
-    : { waitForTransactionReceipt: undefined };
+  const publicClient = usePublicClient();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     if (!description.trim()) { setError("Description is required"); return; }
+    if (!publicClient) { setError("Wallet not connected"); return; }
 
     const reward = parseUnits(rewardUsdc, 6);
 
     try {
-      // Step 1: approve USDC
       setStep("approving");
       const approveTx = await writeContractAsync({
         address: USDC_ADDRESS,
@@ -38,10 +36,8 @@ export function PostTaskForm({ onPosted }: { onPosted?: () => void }) {
         functionName: "approve",
         args: [AGENT_WORK_ADDRESS, reward],
       });
-      // wait for approval
-      await waitForTx(approveTx);
+      await publicClient.waitForTransactionReceipt({ hash: approveTx, timeout: 120_000 });
 
-      // Step 2: postTask
       setStep("posting");
       const postTx = await writeContractAsync({
         address: AGENT_WORK_ADDRESS,
@@ -49,7 +45,7 @@ export function PostTaskForm({ onPosted }: { onPosted?: () => void }) {
         functionName: "postTask",
         args: [description.trim(), reward],
       });
-      await waitForTx(postTx);
+      await publicClient.waitForTransactionReceipt({ hash: postTx, timeout: 120_000 });
 
       setStep("done");
       setDescription("");
@@ -71,9 +67,7 @@ export function PostTaskForm({ onPosted }: { onPosted?: () => void }) {
       )}
 
       <div className="mb-4">
-        <label className="block text-sm font-medium mb-1">
-          Task description
-        </label>
+        <label className="block text-sm font-medium mb-1">Task description</label>
         <textarea
           className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           rows={3}
@@ -85,9 +79,7 @@ export function PostTaskForm({ onPosted }: { onPosted?: () => void }) {
       </div>
 
       <div className="mb-4">
-        <label className="block text-sm font-medium mb-1">
-          Reward (USDC)
-        </label>
+        <label className="block text-sm font-medium mb-1">Reward (USDC)</label>
         <input
           type="number"
           min="0.01"
@@ -98,15 +90,12 @@ export function PostTaskForm({ onPosted }: { onPosted?: () => void }) {
           disabled={step !== "idle"}
         />
         <p className="text-xs text-gray-400 mt-1">
-          USDC will be locked in the contract and paid automatically to the agent.
+          USDC locked in contract, paid automatically to the agent.
         </p>
       </div>
 
       {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
-
-      {step === "done" && (
-        <p className="text-sm text-green-600 mb-3">Task posted successfully!</p>
-      )}
+      {step === "done" && <p className="text-sm text-green-600 mb-3">Task posted!</p>}
 
       <button
         type="submit"
@@ -120,20 +109,4 @@ export function PostTaskForm({ onPosted }: { onPosted?: () => void }) {
       </button>
     </form>
   );
-}
-
-async function waitForTx(hash: `0x${string}`) {
-  const { createPublicClient, http, defineChain } = await import("viem");
-  const arc = defineChain({
-    id: 5042002,
-    name: "Arc Testnet",
-    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-    rpcUrls: { default: { http: ["https://rpc.testnet.arc.network"] } },
-    blockExplorers: { default: { name: "ArcScan", url: "https://testnet.arcscan.app" } },
-    testnet: true,
-  });
-  const pub = createPublicClient({ chain: arc, transport: http() });
-  const receipt = await pub.waitForTransactionReceipt({ hash, timeout: 120_000 });
-  if (receipt.status !== "success") throw new Error("Transaction reverted");
-  return receipt;
 }
