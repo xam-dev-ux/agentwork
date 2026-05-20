@@ -155,7 +155,7 @@ Verifica que funciona: `curl http://localhost:3001/health`
 2. En [render.com](https://render.com) → **New Web Service**
 3. Conecta el repositorio
 4. Configura:
-   - **Root Directory:** `agentwork/agent`
+   - **Root Directory:** `agent`
    - **Build Command:** `npm install && npm run build`
    - **Start Command:** `node dist/index.js`
    - **Plan:** Free
