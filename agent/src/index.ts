@@ -60,7 +60,7 @@ const { wallet, pub, account } = makeClients();
 // ── Gemini (Google AI Studio) ─────────────────────────────────────────────────
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY!);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
 
 async function executeTask(description: string): Promise<string> {
   const prompt = `Eres un agente de trabajo autónomo. Completa la siguiente tarea de forma concisa y útil:\n\n${description}`;
