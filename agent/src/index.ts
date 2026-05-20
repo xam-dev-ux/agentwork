@@ -64,8 +64,22 @@ const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 async function executeTask(description: string): Promise<string> {
   const prompt = `Eres un agente de trabajo autónomo. Completa la siguiente tarea de forma concisa y útil:\n\n${description}`;
-  const result = await model.generateContent(prompt);
-  return result.response.text().trim();
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      const result = await model.generateContent(prompt);
+      return result.response.text().trim();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("429") && attempt < 5) {
+        const wait = attempt * 15_000; // 15s, 30s, 45s, 60s
+        console.log(`  ⏳ Gemini 429 — reintento ${attempt}/5 en ${wait/1000}s`);
+        await new Promise(r => setTimeout(r, wait));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error("Gemini: máximo de reintentos alcanzado");
 }
 
 // ── Conjunto de tareas en proceso (evita reclamar la misma dos veces) ─────────
