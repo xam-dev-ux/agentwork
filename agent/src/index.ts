@@ -82,27 +82,43 @@ async function processOpenTasks() {
       functionName: "getAllTasks",
     });
 
+    // Tareas abiertas que no son del propio agente y no están en proceso
     const openTasks = tasks.filter(
-      (t) => t.state === TASK_STATE.OPEN && !processing.has(t.id)
+      (t) =>
+        t.state === TASK_STATE.OPEN &&
+        t.poster.toLowerCase() !== account.address.toLowerCase() &&
+        !processing.has(t.id)
     );
 
-    if (openTasks.length === 0) return;
-    console.log(`[${new Date().toISOString()}] ${openTasks.length} tarea(s) abierta(s)`);
+    // Tareas que este agente reclamó pero cuyo submitResult no se completó (retry tras restart)
+    const claimedByMe = tasks.filter(
+      (t) =>
+        t.state === TASK_STATE.CLAIMED &&
+        t.agent.toLowerCase() === account.address.toLowerCase() &&
+        !processing.has(t.id)
+    );
 
-    for (const task of openTasks) {
+    const toProcess = [...openTasks, ...claimedByMe];
+    if (toProcess.length === 0) return;
+
+    console.log(`[${new Date().toISOString()}] ${openTasks.length} abierta(s), ${claimedByMe.length} reclamada(s) pendiente(s)`);
+
+    for (const task of toProcess) {
       processing.add(task.id);
 
-      // Ejecutar en background para no bloquear el loop
       void (async () => {
         try {
-          console.log(`→ Reclamando tarea #${task.id}: "${task.description.slice(0, 60)}"`);
-
-          // 1. Claim
-          const claimHash = await wallet.writeContract({
-            address: AGENT_WORK_ADDRESS, abi: ABI, functionName: "claimTask", args: [task.id],
-          });
-          await pub.waitForTransactionReceipt({ hash: claimHash, timeout: 60_000 });
-          console.log(`  ✓ Tarea #${task.id} reclamada`);
+          // 1. Claim solo si está Open (skip si ya está Claimed por nosotros)
+          if (task.state === TASK_STATE.OPEN) {
+            console.log(`→ Reclamando tarea #${task.id}: "${task.description.slice(0, 60)}"`);
+            const claimHash = await wallet.writeContract({
+              address: AGENT_WORK_ADDRESS, abi: ABI, functionName: "claimTask", args: [task.id],
+            });
+            await pub.waitForTransactionReceipt({ hash: claimHash, timeout: 60_000 });
+            console.log(`  ✓ Tarea #${task.id} reclamada`);
+          } else {
+            console.log(`→ Retomando tarea #${task.id} (ya reclamada): "${task.description.slice(0, 60)}"`);
+          }
 
           // 2. Ejecutar con Gemini
           console.log(`  → Ejecutando con Gemini...`);
