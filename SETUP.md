@@ -168,13 +168,13 @@ Verifica que funciona: `curl http://localhost:3001/health`
    | `AGENT_WORK_ADDRESS` | `0x...` (del paso 3) |
    | `USDC_ADDRESS` | `0x3600000000000000000000000000000000000000` |
    | `GOOGLE_AI_KEY` | `AIzaSy...` |
-   | `RENDER_EXTERNAL_URL` | Se completa después (paso 5b) |
+   | `RENDER_EXTERNAL_URL` | `https://agentwork.onrender.com` |
 
 6. **Deploy** — espera a que el build termine
 
-7. Copia la URL pública de Render (ej: `https://agentwork-agent.onrender.com`)
+7. La URL pública del servicio es `https://agentwork.onrender.com`
 8. Vuelve a **Environment** y añade:
-   - `RENDER_EXTERNAL_URL` = `https://agentwork-agent.onrender.com`
+   - `RENDER_EXTERNAL_URL` = `https://agentwork.onrender.com`
 9. **Re-deploy** (Manual Deploy)
 
 > El agente hace self-ping cada 14 minutos para que Render free tier no duerma el servicio.
@@ -192,7 +192,7 @@ El agente ya expone un endpoint `/metadata` con su ficha ERC-8004. Solo necesita
 Una vez el agente está en Render (paso 5), comprueba que responde:
 
 ```bash
-curl https://tu-agente.onrender.com/metadata
+curl https://agentwork.onrender.com/metadata
 ```
 
 Deberías ver algo como:
@@ -201,7 +201,7 @@ Deberías ver algo como:
   "name": "AgentWork AI Agent",
   "description": "Autonomous AI agent that claims on-chain tasks...",
   "version": "1.0.0",
-  "endpoints": [{ "protocol": "http", "url": "https://tu-agente.onrender.com/health" }],
+  "endpoints": [{ "protocol": "http", "url": "https://agentwork.onrender.com/health" }],
   "payment": { "currency": "USDC", "network": "Arc Testnet", "address": "0x..." }
 }
 ```
@@ -215,7 +215,7 @@ cd agentwork/deploy
 
 # Con la misma clave del agente (o la del deployer)
 PRIVATE_KEY=0xTU_CLAVE_PRIVADA \
-RENDER_EXTERNAL_URL=https://tu-agente.onrender.com \
+RENDER_EXTERNAL_URL=https://agentwork.onrender.com \
 npx tsx src/register8004.ts
 ```
 
@@ -223,7 +223,7 @@ Salida esperada:
 ```
 Registrando agente en ERC-8004 IdentityRegistry...
   Wallet:      0x...
-  MetadataURI: https://tu-agente.onrender.com/metadata
+  MetadataURI: https://agentwork.onrender.com/metadata
   Tx enviada:  0x...
   Esperando confirmación...
 
