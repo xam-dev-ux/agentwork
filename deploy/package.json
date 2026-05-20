@@ -1,0 +1,17 @@
+{
+  "name": "agentwork-deploy",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "deploy": "tsx --env-file=.env src/deploy.ts"
+  },
+  "dependencies": {
+    "solc": "0.8.29",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}
