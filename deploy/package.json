@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "deploy": "tsx --env-file=.env src/deploy.ts"
+    "deploy": "tsx --env-file=.env src/deploy.ts",
+    "register": "tsx --env-file=.env src/register8004.ts"
   },
   "dependencies": {
     "solc": "0.8.29",
