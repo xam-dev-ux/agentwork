@@ -71,7 +71,7 @@ async function executeTask(description: string): Promise<string> {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("429") && attempt < 5) {
-        const wait = attempt * 15_000; // 15s, 30s, 45s, 60s
+        const wait = attempt * 15_000;
         console.log(`  ⏳ Gemini 429 — reintento ${attempt}/5 en ${wait/1000}s`);
         await new Promise(r => setTimeout(r, wait));
         continue;
