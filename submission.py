@@ -107,18 +107,20 @@ story += [
 story += section("Project Description")
 story += [
     Paragraph(
-        "AgentWork is an autonomous, on-chain AI task marketplace built on Arc Testnet. "
+        "AgentWork is an on-chain AI task marketplace built on Arc Testnet. "
         "Users post natural language tasks with a USDC reward locked in a smart contract escrow. "
-        "An autonomous AI agent (powered by Google Gemini) continuously polls the contract, "
-        "claims available tasks, executes them using AI, and is paid automatically in USDC "
+        "An AI agent (powered by Claude, Anthropic) claims available tasks on-demand from the UI, "
+        "executes them and is paid automatically in USDC "
         "in the same <i>submitResult()</i> transaction — with no manual payment step.",
         BODY
     ),
     sp(4),
     Paragraph(
         "The payment flow is fully on-chain and trustless: USDC is locked at task creation and "
-        "released directly to the agent upon result submission. The agent is registered on the "
-        "ERC-8004 IdentityRegistry (Agent ID 17109), making it discoverable via 8004scan.io.",
+        "released directly to the agent upon result submission. The UI shows each task with an "
+        "<b>Execute</b> button — clicking it calls the agent's REST API, which claims the task, "
+        "calls Claude AI, submits the result on-chain, and shows the output (or any error) inline. "
+        "The agent is registered on the ERC-8004 IdentityRegistry, making it discoverable via 8004scan.io.",
         BODY
     ),
 ]
@@ -130,28 +132,30 @@ arch_text = """
 ┌─────────────────────────────────────────────────────────────────┐
 │                        USER (MetaMask)                          │
 │                  Wallet: 0xc977...8DaF                          │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │  1. approve(contract, reward)
-                            │  2. postTask(description, reward)
-                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              AgentWork.sol  (Arc Testnet)                        │
-│         0xb0548a2e387ff0162ada0903251385015c6cae45              │
-│                                                                  │
-│   taskId = taskCount++                                           │
-│   USDC locked in contract via transferFrom()                     │
-│   Task { id, poster, description, reward, state: Open }         │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │  getAllTasks() — poll every 30s
-                            ▼
+└──────────────┬──────────────────────────────┬───────────────────┘
+               │  1. approve(contract, reward) │  5. Click "Execute"
+               │  2. postTask(description, r)  │     button in UI
+               ▼                               ▼
+┌──────────────────────────┐    ┌──────────────────────────────────┐
+│    AgentWork.sol          │    │   Next.js UI  (Vercel)           │
+│    (Arc Testnet)          │◄───│   wagmi v2 + Tailwind            │
+│                           │    │                                  │
+│  USDC locked in escrow    │    │  - Task list with state badges   │
+│  Task { state: Open }     │    │  - Execute / Reintentar button   │
+└────────────┬──────────────┘    │  - Spinner + error/result panel  │
+             │  3. POST          └──────────────┬───────────────────┘
+             │  /execute/:id                    │
+             ▼                                  │
 ┌─────────────────────────────────────────────────────────────────┐
 │              AI Agent  (Render — Node.js / Express)             │
 │         Wallet: 0x63F3b112F491b667d50A94a2693dE3Ac2BF564cF     │
 │                                                                  │
-│   3. claimTask(taskId)        → state: Claimed                  │
-│   4. Gemini generateContent() → AI result string                │
-│   5. submitResult(taskId, r)  → state: Completed                │
-│                                 + usdc.transfer(agent, reward)  │
+│   4. claimTask(taskId)          → state: Claimed                │
+│   5. Claude claude-haiku-4-5    → AI result string              │
+│   6. submitResult(taskId, r)    → state: Completed              │
+│      + usdc.transfer(agent, reward)  (same tx, atomic)          │
+│                                                                  │
+│   GET /status/:id  ← UI polls every 2s                          │
 └───────────────────────────┬─────────────────────────────────────┘
                             │  USDC auto-paid in same tx
                             ▼
@@ -161,9 +165,9 @@ arch_text = """
 └─────────────────────────────────────────────────────────────────┘
 
       ┌──────────────┐        ┌───────────────────────────┐
-      │  Next.js UI  │        │  ERC-8004 IdentityRegistry│
-      │  (Vercel)    │        │  Agent ID: 17109          │
-      │  wagmi v2    │        │  testnet.8004scan.io      │
+      │  Anthropic   │        │  ERC-8004 IdentityRegistry│
+      │  Claude API  │        │  testnet.8004scan.io      │
+      │  (Haiku 4.5) │        │                           │
       └──────────────┘        └───────────────────────────┘
 """
 story += [
@@ -176,11 +180,29 @@ story += [
     badge_table([
         "Smart Contract: Solidity 0.8.29, AgentWork.sol — escrow + auto-pay pattern",
         "Deploy: viem + solc (TypeScript) — private key never leaves the process",
-        "AI Agent: Node.js + Express, Google Gemini 2.0 Flash, polling every 30s",
-        "Frontend: Next.js 14 + wagmi v2 + Tailwind CSS — deployed on Vercel",
+        "AI Agent: Node.js + Express, Claude claude-haiku-4-5 (Anthropic) — on-demand via REST API",
+        "Frontend: Next.js 14 + wagmi v2 + Tailwind CSS — Execute button, live status polling",
         "Infrastructure: Agent on Render free tier with self-ping keep-alive",
         "Agent Identity: ERC-8004 IdentityRegistry — registered on Arc Testnet",
     ]),
+]
+
+# ── UI Features ───────────────────────────────────────────────────────────────
+story += section("UI Features")
+story += [
+    Paragraph(
+        "The Next.js frontend (deployed on Vercel) provides a complete task management interface:",
+        BODY
+    ),
+    Paragraph(
+        "• <b>Post Task</b> — form to create a task with USDC reward; handles approve() + postTask() in sequence.<br/>"
+        "• <b>Task List</b> — live view of all tasks with state badges (Open / Claimed / Completed / Refunded).<br/>"
+        "• <b>Execute button</b> — appears on Open and Claimed tasks; triggers the agent via REST API.<br/>"
+        "• <b>Live status</b> — spinner while processing, inline error panel if Claude or the chain fails, "
+        "result panel once the agent completes; task list auto-refreshes 4s after completion.<br/>"
+        "• <b>Wallet connection</b> — MetaMask via wagmi injected connector.",
+        BODY
+    ),
 ]
 
 # ── Flujo USDC ────────────────────────────────────────────────────────────────
@@ -188,9 +210,10 @@ story += section("USDC Payment Flow (Trustless)")
 story += [
     Paragraph("1. <b>approve()</b> — User authorizes contract to spend USDC", BODY),
     Paragraph("2. <b>postTask()</b> — USDC locked in AgentWork.sol via transferFrom()", BODY),
-    Paragraph("3. <b>claimTask()</b> — Agent reserves the task (state → Claimed)", BODY),
-    Paragraph("4. <b>Gemini AI</b> — Agent executes the task off-chain", BODY),
-    Paragraph("5. <b>submitResult()</b> — Result stored on-chain + usdc.transfer(agent, reward) in same tx", BODY),
+    Paragraph("3. <b>Execute button</b> — UI calls POST /execute/:taskId on the agent", BODY),
+    Paragraph("4. <b>claimTask()</b> — Agent reserves the task on-chain (state: Claimed)", BODY),
+    Paragraph("5. <b>Claude AI</b> — Agent executes the task off-chain via Anthropic API", BODY),
+    Paragraph("6. <b>submitResult()</b> — Result stored on-chain + usdc.transfer(agent, reward) in same tx", BODY),
     sp(4),
     Paragraph(
         "No manual approval needed. The USDC payment is atomic with the result submission. "
@@ -203,7 +226,7 @@ story += [
 story += section("Deployed & Verified Contracts on Arc Testnet")
 story += [
     kv_table([
-        ("AgentWork",   "0xb0548a2e387ff0162ada0903251385015c6cae45  ✓ Verified"),
+        ("AgentWork",        "0xb0548a2e387ff0162ada0903251385015c6cae45  ✓ Verified"),
         ("ArcToken ERC-20",  "0xfce439920abae395f2b9c05f3e263be996077fc6  ✓ Verified"),
         ("ArcNFT ERC-721",   "0xcc4a51615ead7f261f5eca25d3e6c1e20c4e9024  ✓ Verified"),
         ("ArcMulti ERC-1155","0xffc793fabb40b336f3334ca8307a93e466d5f324  ✓ Verified"),
