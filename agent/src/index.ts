@@ -8,14 +8,14 @@
 import express from "express";
 import { createWalletClient, createPublicClient, http, parseAbi } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Anthropic from "@anthropic-ai/sdk";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const AGENT_WORK_ADDRESS = process.env.AGENT_WORK_ADDRESS as `0x${string}`;
 const POLL_INTERVAL_MS   = 30_000;
 
-for (const v of ["AGENT_PRIVATE_KEY", "AGENT_WORK_ADDRESS", "GOOGLE_AI_KEY"]) {
+for (const v of ["AGENT_PRIVATE_KEY", "AGENT_WORK_ADDRESS", "ANTHROPIC_API_KEY"]) {
   if (!process.env[v]) { console.error(`✗ ${v} no está en env`); process.exit(1); }
 }
 
@@ -51,16 +51,22 @@ function makeClients() {
 
 const { wallet, pub, account } = makeClients();
 
-// ── Gemini ────────────────────────────────────────────────────────────────────
+// ── Claude (Anthropic) ────────────────────────────────────────────────────────
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_KEY!);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 async function executeTask(description: string): Promise<string> {
-  const prompt = `Eres un agente de trabajo autónomo. Completa la siguiente tarea de forma concisa y útil:\n\n${description}`;
-  // Sin reintentos automáticos — si falla, el error llega a la UI
-  const result = await model.generateContent(prompt);
-  return result.response.text().trim();
+  const message = await anthropic.messages.create({
+    model:      "claude-haiku-4-5-20251001",
+    max_tokens: 1024,
+    messages: [{
+      role:    "user",
+      content: `Eres un agente de trabajo autónomo. Completa la siguiente tarea de forma concisa y útil:\n\n${description}`,
+    }],
+  });
+  const block = message.content[0];
+  if (block.type !== "text") throw new Error("Respuesta inesperada de Claude");
+  return block.text.trim();
 }
 
 // ── Estado de ejecuciones en curso ────────────────────────────────────────────
@@ -119,7 +125,7 @@ app.get("/metadata", (_req, res) => {
     version:     "1.0.0",
     image:       "",
     endpoints: [{ protocol: "http", url: `${selfUrl}/health` }],
-    skills: [{ name: "execute_task", description: "Executes a natural language task using Gemini AI and submits the result on-chain." }],
+    skills: [{ name: "execute_task", description: "Executes a natural language task using Claude AI and submits the result on-chain." }],
     payment: { currency: "USDC", network: "Arc Testnet", address: account.address },
   });
 });
