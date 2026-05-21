@@ -41,7 +41,7 @@ export function TaskList() {
 
       <div className="flex flex-col gap-3">
         {[...tasks].reverse().map((task) => (
-          <TaskCard key={task.id.toString()} task={task} />
+          <TaskCard key={task.id.toString()} task={task} onCompleted={() => setTimeout(() => refetch(), 4_000)} />
         ))}
       </div>
     </div>

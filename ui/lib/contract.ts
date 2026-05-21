@@ -4,6 +4,9 @@ export const AGENT_WORK_ADDRESS = (
   process.env.NEXT_PUBLIC_AGENT_WORK_ADDRESS ?? ""
 ) as `0x${string}`;
 
+export const AGENT_ADDRESS = "0x63F3b112F491b667d50A94a2693dE3Ac2BF564cF" as `0x${string}`;
+export const AGENT_URL     = process.env.NEXT_PUBLIC_AGENT_URL ?? "https://agentwork.onrender.com";
+
 export const USDC_ADDRESS = (
   process.env.NEXT_PUBLIC_USDC_ADDRESS ??
   "0x3600000000000000000000000000000000000000"
